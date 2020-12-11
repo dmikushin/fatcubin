@@ -10,9 +10,16 @@ using namespace std;
 static unsigned long long _find_cubin_offset(ElfW(Shdr) header,
 	void* start_ptr, unsigned long long offset, const char* name)
 {
-	// TODO Parse the ".nv_fatbin" aligning to byte sequence "50 ed 55 ba 01 00 10 00".
+	// TODO Parse the ".nv_fatbin" aligning to byte sequence "50 ed 55 ba 01 00 10 00":
+	// ...
+	// asm(
+	// ".section .nv_fatbin, \"a\"\n"
+	// ".align 8\n"
+	// "fatbinData:\n"
+	// ".quad 0x00100001ba55ed50,0x00000000000008a8,0x0000004001010002,0x00000000000007a8\n"
+	// ...
 	// TODO Find the cubin related to the global method you want to cuModuleGetFunction.
-	return 0;
+	return offset;
 }
 
 int main(int argc, char * argv[])
@@ -39,7 +46,6 @@ int main(int argc, char * argv[])
 	const char* filename = argv[1];
 	const char* kernel_name = argv[2];
 
-	void* start_ptr = NULL;
 	struct stat sb;
 	size_t sz = 0;
 
@@ -63,7 +69,7 @@ int main(int argc, char * argv[])
 	sz = sb.st_size;
 
 	cout << "Mapping file to memory : " << sz << endl;
-	start_ptr = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+	void* start_ptr = mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 
 	//check if valid elf
 	bool b = elf_is_elf64(file);
@@ -88,7 +94,7 @@ int main(int argc, char * argv[])
 			{
 				cout << "Found fatbin section" << endl;
 
-				cout << "sh_addr = " <<	header.sh_addr << endl;
+				cout << "sh_addr = " <<	(void*)header.sh_addr << endl;
 				unsigned long long offset = header.sh_addr;
 				
 				// Parse the ".nv_fatbin" aligning to byte sequence "50 ed 55 ba 01 00 10 00".
@@ -97,7 +103,7 @@ int main(int argc, char * argv[])
 
 				const void * fatbin = &((unsigned char *) start_ptr)[cuOffset];
 				
-				cout << "fatbin = " << fatbin << endl;
+				cout << "fatbin = " << (void*)cuOffset << endl;
 
 				// Get handle for device 0
 				CUdevice cuDevice;
@@ -111,7 +117,6 @@ int main(int argc, char * argv[])
 				// Call cuModuleLoadFatBinary with a base address of the .nv_fatbin + specific cubin offset.
 				CUmodule cuModule;
 				ret = cuModuleLoadFatBinary(&cuModule, fatbin);
-
 				if (ret != CUDA_SUCCESS)
 				{
 					cout << "Failed to load fatbin : " << filename << " : " << ret << endl;
