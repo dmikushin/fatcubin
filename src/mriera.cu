@@ -78,82 +78,73 @@ int main(int argc, char * argv[])
 	if (b)
 	{
 		cout << "Found valid ELF file" << endl;
-		//get ELF_Header
-		b = elf64_get_elf_header(file, &elf_header);
-		fseek(file, 0, SEEK_SET);
 
-		if (b)
+		unsigned char magic[] = { 0x50, 0xed, 0x55, 0xba, 0x01, 0x00, 0x10, 0x00 };
+		size_t cuOffset = (size_t)-1;
+		for (size_t i = 0; i < sz - sizeof(magic); i++)
 		{
-			cout << "Found valid ELF Header" << endl;
+			if (memcmp(start_ptr + i, magic, sizeof(magic)))
+				continue;
 
-			// Read the ELF headers and find the ".nv_fatbin" section.
-			b = elf64_get_section_header_by_name(file, (const Elf64_Ehdr *) &elf_header, ".nv_fatbin", &header);
-			fseek(file, 0, SEEK_SET);
-
-			if (b)
-			{
-				cout << "Found fatbin section" << endl;
-
-				cout << "sh_addr = " <<	(void*)header.sh_addr << endl;
-				unsigned long long offset = header.sh_addr;
-				
-				// Parse the ".nv_fatbin" aligning to byte sequence "50 ed 55 ba 01 00 10 00".
-				// Find the cubin related to the global method you want to cuModuleGetFunction.
-				unsigned long long cuOffset = _find_cubin_offset(header, start_ptr, offset, kernel_name);
-
-				const void * fatbin = &((unsigned char *) start_ptr)[cuOffset];
-				
-				cout << "fatbin = " << (void*)cuOffset << endl;
-
-				// Get handle for device 0
-				CUdevice cuDevice;
-				cuDeviceGet(&cuDevice, 0);
-				// Create context
-				CUcontext cuContext;
-				int ret = cuCtxCreate(&cuContext, 0, cuDevice);
-				if (ret != CUDA_SUCCESS)
-					cout << "Could not create context on device 0" << endl;
-
-				// Call cuModuleLoadFatBinary with a base address of the .nv_fatbin + specific cubin offset.
-				CUmodule cuModule;
-				ret = cuModuleLoadFatBinary(&cuModule, fatbin);
-				if (ret != CUDA_SUCCESS)
-				{
-					cout << "Failed to load fatbin : " << filename << " : " << ret << endl;
-				}
-
-				CUfunction khw;
-				ret = cuModuleGetFunction(&khw, cuModule, kernel_name);
-				if (ret != CUDA_SUCCESS)
-				{
-					cout << "Failed to get " << kernel_name << " from " << filename << " : " << ret << endl;
-				}
-				else ret = cuLaunchKernel(khw, 1, 1, 1, 1, 1, 1, 0, 0, NULL, 0);
-
-				if (ret != CUDA_SUCCESS)
-				{
-					cout << "Failed to launch : " << kernel_name << endl;
-				}
-
-				ret = cuModuleUnload(cuModule);
-
-				if (ret != CUDA_SUCCESS)
-				{
-					cout << "Failed to unload self fatbin : " << filename << endl;
-					return -1;
-				}
-
-				if (cudaDeviceSynchronize() != cudaSuccess)
-				{
-					printf ("Cuda call failed\n");
-				}
-
-				//unmap sutff
-				munmap(start_ptr, sz);
-				return 0;
-			}
+				cuOffset = i;
+				break;
+		}
+		if (cuOffset == (size_t)-1)
+		{
+			printf("Could not find the fatbin magic\n");
+			exit(1);
 		}
 
+		const void * fatbin = &((unsigned char *) start_ptr)[cuOffset];
+				
+		cout << "fatbin = " << (void*)cuOffset << endl;
+
+		// Get handle for device 0
+		CUdevice cuDevice;
+		cuDeviceGet(&cuDevice, 0);
+		// Create context
+		CUcontext cuContext;
+		int ret = cuCtxCreate(&cuContext, 0, cuDevice);
+		if (ret != CUDA_SUCCESS)
+			cout << "Could not create context on device 0" << endl;
+
+		// Call cuModuleLoadFatBinary with a base address of the .nv_fatbin + specific cubin offset.
+		CUmodule cuModule;
+		ret = cuModuleLoadFatBinary(&cuModule, fatbin);
+		if (ret != CUDA_SUCCESS)
+		{
+			cout << "Failed to load fatbin : " << filename << " : " << ret << endl;
+		}
+
+		CUfunction khw;
+		ret = cuModuleGetFunction(&khw, cuModule, kernel_name);
+		if (ret != CUDA_SUCCESS)
+		{
+			cout << "Failed to get " << kernel_name << " from " << filename << " : " << ret << endl;
+		}
+		else ret = cuLaunchKernel(khw, 1, 1, 1, 1, 1, 1, 0, 0, NULL, 0);
+
+		if (ret != CUDA_SUCCESS)
+		{
+			cout << "Failed to launch : " << kernel_name << endl;
+		}
+
+		ret = cuModuleUnload(cuModule);
+
+		if (ret != CUDA_SUCCESS)
+		{
+			cout << "Failed to unload self fatbin : " << filename << endl;
+			return -1;
+		}
+
+		if (cudaDeviceSynchronize() != cudaSuccess)
+		{
+			printf ("Cuda call failed\n");
+		}
+
+		//unmap sutff
+		munmap(start_ptr, sz);
+		return 0;
 	}
 
 	fclose(file);
