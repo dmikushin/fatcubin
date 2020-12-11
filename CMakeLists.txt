@@ -9,3 +9,6 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES OFF)
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 target_link_libraries(${PROJECT_NAME} cuda)
 
+add_executable(${PROJECT_NAME}_test "src/test.cu")
+set_property(TARGET ${PROJECT_NAME}_test PROPERTY CUDA_ARCHITECTURES OFF)
+target_include_directories(${PROJECT_NAME}_test PRIVATE include)

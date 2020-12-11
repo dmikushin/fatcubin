@@ -15,17 +15,25 @@ static unsigned long long _find_cubin_offset(ElfW(Shdr) header,
 
 int main(int argc, char * argv[])
 {
+	if (argc != 3)
+	{
+		printf("%s <elf_filename> <kernel_name>\n", argv[0]);
+		return 0;
+	}
+
+	const char* filename = argv[1];
+	const char* kernel_name = argv[2];
+
 	void* start_ptr = NULL;
 	struct stat sb;
 	size_t sz = 0;
 
-	//read_elf_header(argv[0]);
 	// Either Elf64_Ehdr or Elf32_Ehdr depending on architecture.
 	ElfW(Ehdr) elf_header;
 	ElfW(Shdr) header;
 
 	cout << "opening elf file" << endl;
-	FILE* file = fopen(argv[0], "rb");
+	FILE* file = fopen(filename, "rb");
 
 	int fd = fileno(file);
 	if (fd < 0)
@@ -87,38 +95,37 @@ int main(int argc, char * argv[])
 				cout << "sh_addr = " <<	header.sh_addr << endl;
 				unsigned long long offset = header.sh_addr;
 				
-				unsigned long long cuOffset = _find_cubin_offset(header, start_ptr, offset, "_Z11hello_worldv");
+				unsigned long long cuOffset = _find_cubin_offset(header, start_ptr, offset, kernel_name);
 
 				const void * fatbin = &((unsigned char *) start_ptr)[cuOffset];
 				
-				 cout << "fat bin = " << fatbin << endl;
+				 cout << "fatbin = " << fatbin << endl;
 
 				ret = cuModuleLoadFatBinary(&cuModule, fatbin);
 
 				if (ret != CUDA_SUCCESS)
 				{
-					cout << "Failed to load self fatbin : " << argv[0] << " : " << ret<< endl;
+					cout << "Failed to load fatbin : " << filename << " : " << ret << endl;
 				}
 
 				CUfunction khw;
-				//ret = cuModuleGetFunction(&khw, cuModule, "hello_world");
-				ret = cuModuleGetFunction(&khw, cuModule, "_Z11hello_worldv");
+				ret = cuModuleGetFunction(&khw, cuModule, kernel_name);
 				if (ret != CUDA_SUCCESS)
 				{
-					cout << "Failed to get hello_world from " << argv[0] << " : " << ret <<	endl;
+					cout << "Failed to get " << kernel_name << " from " << filename << " : " << ret << endl;
 				}
 				else ret = cuLaunchKernel(khw, 1, 1, 1, 1, 1, 1, 0, 0, NULL, 0);
 
 				if (ret != CUDA_SUCCESS)
 				{
-					cout << "Failed to launch : hello_world "	<< endl;
+					cout << "Failed to launch : " << kernel_name << endl;
 				}
 
 				ret = cuModuleUnload(cuModule);
 
 				if (ret != CUDA_SUCCESS)
 				{
-					cout << "Failed to unload self fatbin : " << argv[0] << endl;
+					cout << "Failed to unload self fatbin : " << filename << endl;
 					return -1;
 				}
 
