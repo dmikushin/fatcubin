@@ -10,6 +10,8 @@ using namespace std;
 static unsigned long long _find_cubin_offset(ElfW(Shdr) header,
 	void* start_ptr, unsigned long long offset, const char* name)
 {
+	// TODO Parse the ".nv_fatbin" aligning to byte sequence "50 ed 55 ba 01 00 10 00".
+	// TODO Find the cubin related to the global method you want to cuModuleGetFunction.
 	return 0;
 }
 
@@ -20,6 +22,19 @@ int main(int argc, char * argv[])
 		printf("%s <elf_filename> <kernel_name>\n", argv[0]);
 		return 0;
 	}
+
+	cuInit(0);
+
+	// Get number of devices supporting CUDA
+	int deviceCount = 0;
+	cuDeviceGetCount(&deviceCount);
+	if (deviceCount == 0)
+	{
+		printf("There is no device supporting CUDA.\n");
+		exit(0);
+	}
+	else
+		cout << "Number of devices is "<< deviceCount << endl;
 
 	const char* filename = argv[1];
 	const char* kernel_name = argv[2];
@@ -63,24 +78,26 @@ int main(int argc, char * argv[])
 
 		if (b)
 		{
-			cout << "-Found valid ELF Header" << endl;
+			cout << "Found valid ELF Header" << endl;
+
+			// Read the ELF headers and find the ".nv_fatbin" section.
 			b = elf64_get_section_header_by_name(file, (const Elf64_Ehdr *) &elf_header, ".nv_fatbin", &header);
 			fseek(file, 0, SEEK_SET);
 
 			if (b)
 			{
 				cout << "Found fatbin section" << endl;
-				cuInit(0);
-				// Get number of devices supporting CUDA
-				int deviceCount = 0;
-				cuDeviceGetCount(&deviceCount);
 
-				if (deviceCount == 0)
-				{
-					printf("There is no device supporting CUDA.\n");
-					exit (0);
-				}
-				else cout << "Number of device is "<< deviceCount << endl;
+				cout << "sh_addr = " <<	header.sh_addr << endl;
+				unsigned long long offset = header.sh_addr;
+				
+				// Parse the ".nv_fatbin" aligning to byte sequence "50 ed 55 ba 01 00 10 00".
+				// Find the cubin related to the global method you want to cuModuleGetFunction.
+				unsigned long long cuOffset = _find_cubin_offset(header, start_ptr, offset, kernel_name);
+
+				const void * fatbin = &((unsigned char *) start_ptr)[cuOffset];
+				
+				cout << "fatbin = " << fatbin << endl;
 
 				// Get handle for device 0
 				CUdevice cuDevice;
@@ -90,17 +107,9 @@ int main(int argc, char * argv[])
 				int ret = cuCtxCreate(&cuContext, 0, cuDevice);
 				if (ret != CUDA_SUCCESS)
 					cout << "Could not create context on device 0" << endl;
-				// Create module from binary file
+
+				// Call cuModuleLoadFatBinary with a base address of the .nv_fatbin + specific cubin offset.
 				CUmodule cuModule;
-				cout << "sh_addr = " <<	header.sh_addr << endl;
-				unsigned long long offset = header.sh_addr;
-				
-				unsigned long long cuOffset = _find_cubin_offset(header, start_ptr, offset, kernel_name);
-
-				const void * fatbin = &((unsigned char *) start_ptr)[cuOffset];
-				
-				 cout << "fatbin = " << fatbin << endl;
-
 				ret = cuModuleLoadFatBinary(&cuModule, fatbin);
 
 				if (ret != CUDA_SUCCESS)
