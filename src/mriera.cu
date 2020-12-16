@@ -126,14 +126,14 @@ int main(int argc, char * argv[])
 
 		if (ret != CUDA_SUCCESS)
 		{
-			cout << "Failed to launch : " << kernel_name << endl;
+			cout << "Failed to launch : " << kernel_name << " : " << ret << endl;
 		}
 
 		ret = cuModuleUnload(cuModule);
 
 		if (ret != CUDA_SUCCESS)
 		{
-			cout << "Failed to unload self fatbin : " << filename << endl;
+			cout << "Failed to unload self fatbin : " << filename << " : " << ret << endl;
 			return -1;
 		}
 
