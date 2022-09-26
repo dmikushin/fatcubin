@@ -4,22 +4,28 @@ This utility is used to locate and launch CUDA kernels embedded into arbitrary 3
 
 Here we reconstruct the full working solution from a snippet provided on [StackOverflow](https://stackoverflow.com/questions/64815293/using-cumoduleload-to-get-current-module-from-elf-binary-from-argv0) by @mriera
 
-## Example usage
+## Prerequisites
+
+```
+sudo apt install libelf-dev
+```
+
+## Building
 
 ```
 mkdir build
 cd build
 cmake ..
-$ ./mriera mriera_test
-./mriera <elf_filename> <kernel_name>
-$ ./mriera mriera_test hello_world
-Number of devices is 1
-opening elf file
-getting file size
-Mapping file to memory : 710000
-is ELF file : 1
-Found valid ELF file
-fatbin = 0x68620
+make
+```
+
+## Testing
+
+```
+./fatcubin_test
+./fatcubin_test <elf_filename> <kernel_name>
+
+./fatcubin_test sample_app hello_world
 Hello, world!
 ```
 

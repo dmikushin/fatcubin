@@ -1,14 +1,17 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.19)
 
-project(mriera)
+project(fatcubin)
 
 enable_language(CUDA)
+find_package(CUDAToolkit REQUIRED)
 
-add_executable(${PROJECT_NAME} "src/mriera.cu" "src/elf.c")
+add_library(${PROJECT_NAME} SHARED "src/${PROJECT_NAME}.cu" "src/elf.c")
 set_property(TARGET ${PROJECT_NAME} PROPERTY CUDA_ARCHITECTURES OFF)
-target_include_directories(${PROJECT_NAME} PRIVATE include)
-target_link_libraries(${PROJECT_NAME} cuda)
+target_include_directories(${PROJECT_NAME} PUBLIC include)
+target_link_libraries(${PROJECT_NAME} CUDA::cuda_driver)
 
-add_executable(${PROJECT_NAME}_test "src/test.cu")
-set_property(TARGET ${PROJECT_NAME}_test PROPERTY CUDA_ARCHITECTURES OFF)
-target_include_directories(${PROJECT_NAME}_test PRIVATE include)
+add_executable(${PROJECT_NAME}_test "src/test/${PROJECT_NAME}.cu")
+target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
+
+add_executable(sample_app "src/sample_app/sample_app.cu")
+
